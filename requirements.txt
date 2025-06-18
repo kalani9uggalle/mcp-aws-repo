@@ -1,0 +1,3 @@
+fastmcp
+uvicorn[standard]
+awslabs.aws-documentation-mcp-server
