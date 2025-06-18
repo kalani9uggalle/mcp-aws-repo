@@ -1,33 +1,29 @@
-# Use a Python version >= 3.10. Python 3.11 is a good stable choice.
-FROM python:3.11-slim-buster
+# Dockerfile.mcp-wrapper
+FROM node:18-alpine
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# 1. Update apt and install essential build tools and git.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        git \
-        libffi-dev \
-        libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Install Python and UV for uvx-based servers
+RUN apk add --no-cache python3 py3-pip curl bash
 
-# 2. Upgrade pip, setuptools, and wheel for a robust installation environment
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Install UV (for uvx commands)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
 
-# 3. Install uv (the tool used to run the MCP server) and your specific MCP server package
-RUN pip install --no-cache-dir uv awslabs.aws-documentation-mcp-server
+# Copy package files
+COPY package*.json ./
+RUN npm install
 
-# Define environment variables required by your MCP server
-ENV FASTMCP_LOG_LEVEL=ERROR
-ENV AWS_DOCUMENTATION_PARTITION=aws
-# IMPORTANT: Use Render's environment variables for sensitive data like API keys.
+# Copy wrapper script
+COPY mcp-wrapper.js ./
+COPY start.sh ./
+RUN chmod +x start.sh
 
-# Expose the port where your MCP server listens.
-EXPOSE 8080 
+# Expose port
+EXPOSE 3000
 
-# This is the FIX: Directly start the MCP server using the 'uv run' command.
-# 'uv' is the executable you installed, and 'run' is its subcommand to execute packages.
-# --host 0.0.0.0 is essential for the container to listen on its network interface.
-CMD ["uv", "run", "awslabs.aws-documentation-mcp-server", "--host", "0.0.0.0", "--port", "8080"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+CMD ["./start.sh"]
