@@ -1,29 +1,29 @@
 import express from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { spawn } from "child_process";
+import {
+  McpServer,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  StdioServerTransport,
+  StreamableHTTPServerTransport
+} from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 const app = express();
-const server = new McpServer({ name: "render-mcp", version: "1.0.0" });
 
-// Register a simple echo tool
-server.registerTool(
-  "echo",
-  {
-    title: "Echo Tool",
-    description: "Echo back provided text",
-    inputSchema: { text: { type: "string", description: "Text to echo" } }
-  },
-  async ({ text }) => ({ content: [{ type: "text", text }] })
-);
+// Spawn AWS docs MCP as a stdio subprocess
+const subprocess = spawn("uvx", ["awslabs.aws-documentation-mcp-server@latest"], {
+  env: { FASTMCP_LOG_LEVEL: "ERROR", AWS_DOCUMENTATION_PARTITION: "aws" },
+  stdio: ["pipe", "pipe", "inherit"],
+});
 
-// Attach Streamable HTTP transport at /mcp
+const server = McpServer.fromStdio({ read: subprocess.stdout, write: subprocess.stdin });
+
+// Expose via HTTP stream
 const transport = new StreamableHTTPServerTransport({ server });
 app.use("/mcp", transport.middleware());
-
-// Add a health check for convenience
 app.get("/health", (_req, res) => res.send("OK"));
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`🚀 MCP server running at http://localhost:${port}/mcp`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =>
+  console.log(`➡️ AWS Docs MCP available at http://localhost:${PORT}/mcp`)
+);
