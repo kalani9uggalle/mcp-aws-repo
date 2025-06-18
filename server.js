@@ -1,28 +1,29 @@
 import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { HTTPStreamTransport } from "@modelcontextprotocol/sdk/server/http.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 const app = express();
-const server = new McpServer({ name: "render-mcp-server", version: "1.0.0" });
+const server = new McpServer({ name: "render-mcp", version: "1.0.0" });
 
-// Example tool: echo input
+// Register a simple echo tool
 server.registerTool(
   "echo",
   {
     title: "Echo Tool",
-    description: "Echo back text",
+    description: "Echo back provided text",
     inputSchema: { text: { type: "string", description: "Text to echo" } }
   },
   async ({ text }) => ({ content: [{ type: "text", text }] })
 );
 
-// Set up Streamable HTTP endpoint
-app.use("/mcp", new HTTPStreamTransport({ server }).middleware());
+// Attach Streamable HTTP transport at /mcp
+const transport = new StreamableHTTPServerTransport({ server });
+app.use("/mcp", transport.middleware());
 
-// Optionally add health check
+// Add a health check for convenience
 app.get("/health", (_req, res) => res.send("OK"));
 
 const port = process.env.PORT || 3000;
-app.listen(port, () =>
-  console.log(`🚀 MCP server listening at http://localhost:${port}/mcp`)
-);
+app.listen(port, () => {
+  console.log(`🚀 MCP server running at http://localhost:${port}/mcp`);
+});
