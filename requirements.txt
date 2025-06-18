@@ -1,3 +1,2 @@
-fastmcp>=2.3.2
+uv                      # installs uv & uvx CLI
 awslabs.aws-documentation-mcp-server
-uvicorn
